@@ -1,0 +1,42 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+backend/.env
+
+
+# Node modules
+node_modules
+
+# Build outputs
+dist
+dist-ssr
+build
+.next
+out
+*.local
+backend/.env
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+backend/.env
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+backend/.env
