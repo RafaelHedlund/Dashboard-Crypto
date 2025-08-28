@@ -44,7 +44,7 @@ function Header({ darkMode }) {
   );
 }
 
-// ---------------- NEWS TICKER ----------------
+// ---------------- NEWS--------------
 function NewsTicker({ news, darkMode }) {
   return (
     <div 
@@ -266,10 +266,7 @@ function App() {
         darkMode ? "bg-gray-950 text-white" : "bg-gray-50 text-gray-900"
       } min-h-screen font-sans flex flex-col`}
     >
-      <Header darkMode={darkMode} />
 
-      {/* News Ticker abaixo do header */}
-      {news.length > 0 && <NewsTicker news={news} darkMode={darkMode} />}
 
       <div className="flex-1 pt-32 pb-12 px-6 max-w-[1920px] mx-auto w-full">
         {/* CONTROLES */}
