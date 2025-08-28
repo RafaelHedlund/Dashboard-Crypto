@@ -267,7 +267,8 @@ function App() {
       } min-h-screen font-sans flex flex-col`}
     >
 
-
+ <Header darkMode={darkMode} />
+      
       <div className="flex-1 pt-32 pb-12 px-6 max-w-[1920px] mx-auto w-full">
         {/* CONTROLES */}
         <div className="flex flex-col sm:flex-row justify-between items-center w-full mb-8 gap-4">
