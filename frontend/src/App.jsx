@@ -1,34 +1,46 @@
-// frontend/src/App.jsx
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { Line } from "react-chartjs-2";
 import "chart.js/auto";
 import Footer from "./assets/components/Footer";
-import { Github, Linkedin } from "lucide-react";
+import { Github, Linkedin, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
+import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
+import CoinDetails from "./assets/components/CoinDetails";
 
 // ---------------- HEADER ----------------
-function Header({ darkMode }) {
+function Header({ darkMode, showBack, onBack }) {
   return (
     <header
       className={`${
         darkMode
           ? "bg-gradient-to-r from-gray-900 to-gray-800 text-white"
           : "bg-gradient-to-r from-gray-100 to-gray-200 text-gray-900"
-      } w-full shadow-lg fixed top-0 left-0 z-50`}
+      } w-full fixed top-0 left-0 z-50 h-12`}
     >
-      <nav className="flex items-center justify-between px-6 py-4 max-w-[1920px] mx-auto">
-        <div className="text-2xl font-bold tracking-tight font-poppins">
-          🚀 Rafael Hedlund –{" "}
-          <span className="text-indigo-500">Crypto Dashboard</span>
+      <nav className="flex items-center justify-between px-4 py-3 max-w-[1920px] mx-auto">
+        <div className="flex items-center gap-3">
+          {showBack && (
+            <button
+              onClick={onBack}
+              className="flex items-center gap-1 text-sm hover:text-indigo-400 transition-colors"
+            >
+              <ArrowLeft size={16} />
+              Voltar
+            </button>
+          )}
+          <div className="text-base font-bold tracking-tight">
+            🚀 Rafael Hedlund –{" "}
+            <span className="text-indigo-500">Crypto Dashboard</span>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <a
             href="https://github.com/RafaelHedlund"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-indigo-400 transition-colors"
           >
-            <Github size={20} />
+            <Github size={16} />
           </a>
           <a
             href="https://www.linkedin.com/in/rafaelhedlund/"
@@ -36,7 +48,7 @@ function Header({ darkMode }) {
             rel="noopener noreferrer"
             className="hover:text-indigo-400 transition-colors"
           >
-            <Linkedin size={20} />
+            <Linkedin size={16} />
           </a>
         </div>
       </nav>
@@ -44,36 +56,12 @@ function Header({ darkMode }) {
   );
 }
 
-// ---------------- NEWS--------------
-function NewsTicker({ news, darkMode }) {
-  return (
-    <div 
-      className={`${darkMode ? 'bg-gray-800' : 'bg-gray-200'} w-full py-2 overflow-hidden fixed top-16 z-40`}
-      style={{ height: '40px' }}
-    >
-      <div className="flex animate-marquee whitespace-nowrap">
-        {news.map((item, index) => (
-          <a
-            key={index}
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`mx-4 px-3 py-1 rounded-full ${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-white text-gray-900 hover:bg-gray-100'} text-sm font-medium transition-all`}
-          >
-            📰 {item.title.length > 80 ? item.title.substring(0, 80) + '...' : item.title}
-          </a>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ---------------- SELECTOR ----------------
 function CurrencySelector({ currency, setCurrency, darkMode }) {
   const currencies = [
-    { code: "usd", symbol: "$", flag: "🇺🇸", emoji: "💵", name: "Dólar" },
-    { code: "brl", symbol: "R$", flag: "🇧🇷", emoji: "💵", name: "Real" },
-    { code: "eur", symbol: "€", flag: "🇪🇺", emoji: "💶", name: "Euro" },
+    { code: "usd", symbol: "$", flag: "🇺🇸", name: "USD" },
+    { code: "brl", symbol: "R$", flag: "🇧🇷", name: "BRL" },
+    { code: "eur", symbol: "€", flag: "🇪🇺", name: "EUR" },
   ];
   return (
     <select
@@ -81,13 +69,13 @@ function CurrencySelector({ currency, setCurrency, darkMode }) {
         darkMode
           ? "bg-gray-800 text-white border-gray-700"
           : "bg-white text-gray-900 border-gray-300"
-      } px-3 py-2 rounded-xl border shadow-sm transition`}
+      } px-3 py-1.5 rounded-lg border shadow-sm transition text-xs`}
       value={currency}
       onChange={(e) => setCurrency(e.target.value)}
     >
       {currencies.map((cur) => (
         <option key={cur.code} value={cur.code}>
-          {cur.flag} {cur.emoji} {cur.name}
+          {cur.flag} {cur.name}
         </option>
       ))}
     </select>
@@ -96,44 +84,64 @@ function CurrencySelector({ currency, setCurrency, darkMode }) {
 
 // ---------------- CRYPTO CARD ----------------
 function Card({ coin, currency, getCurrencySymbol, darkMode }) {
+  const navigate = useNavigate();
+  
+  const handleClick = () => {
+    navigate(`/coin/${coin.id}`);
+  };
+  
   return (
     <div
+      onClick={handleClick}
       className={`${
-        darkMode ? "bg-gray-800 text-white" : "bg-gray-200 text-gray-900"
-      } p-4 border-2 border-transparent hover:border-purple-500 
-      hover:shadow-[0_0_15px_#a855f7] transition-all duration-300 rounded-xl h-full flex flex-col`}
+        darkMode ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-900"
+      } p-3 border ${
+        darkMode ? "border-gray-700" : "border-gray-300"
+      } hover:border-purple-500 hover:shadow-md transition-all duration-200 rounded-lg h-full flex flex-col cursor-pointer`}
     >
-      <div className="flex items-center mb-3">
-        <img src={coin.image} alt={coin.name} className="w-14 h-14" />
-        <div className="ml-3">
-          <h2 className="text-lg font-semibold">
-            {coin.name} ({coin.symbol.toUpperCase()})
-          </h2>
-          <p className="text-sm opacity-80">
-            {getCurrencySymbol(currency)} {coin.current_price.toLocaleString()}
-          </p>
-          <p
-            className={`text-sm font-semibold mt-1 ${
-              coin.price_change_percentage_24h >= 0
-                ? "text-green-400"
-                : "text-red-500"
-            }`}
-          >
-            {coin.price_change_percentage_24h?.toFixed(2)}%
+      <div className="flex items-center mb-2">
+        <img src={coin.image} alt={coin.name} className="w-8 h-8" />
+        <div className="ml-2 flex-1">
+          <div className="flex justify-between items-start">
+            <div>
+              <h2 className="text-xs font-semibold">
+                {coin.symbol.toUpperCase()}
+              </h2>
+              <p className="text-xs opacity-70 truncate max-w-[80px]">
+                {coin.name}
+              </p>
+            </div>
+            <p
+              className={`text-xs font-semibold ${
+                coin.price_change_percentage_24h >= 0
+                  ? "text-green-400"
+                  : "text-red-500"
+              }`}
+            >
+              {coin.price_change_percentage_24h?.toFixed(2)}%
+            </p>
+          </div>
+          <p className="text-xs opacity-80 mt-1">
+            {getCurrencySymbol(currency)}{" "}
+            {coin.current_price.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: coin.current_price < 1 ? 6 : 2,
+            })}
           </p>
         </div>
       </div>
-      <p className="text-xs opacity-70 mb-3">
-        Market Cap: {getCurrencySymbol(currency)}{" "}
-        {coin.market_cap.toLocaleString()}
+      <p className="text-xs opacity-70 mb-1">
+        Cap: {getCurrencySymbol(currency)}{" "}
+        {(coin.market_cap / 1000000000).toFixed(1)}B
       </p>
-      <div className="mt-auto w-full h-24">
+      <div className="mt-auto w-full h-14">
         <Line
           options={{
             elements: { point: { radius: 0 } },
             plugins: { legend: { display: false } },
             scales: { x: { display: false }, y: { display: false } },
             maintainAspectRatio: false,
+            responsive: true,
           }}
           data={{
             labels: coin.sparkline_in_7d.price.map((_, i) => i),
@@ -145,7 +153,8 @@ function Card({ coin, currency, getCurrencySymbol, darkMode }) {
                     ? "rgb(34,197,94)"
                     : "rgb(239,68,68)",
                 backgroundColor: "transparent",
-                tension: 0.3,
+                tension: 0.4,
+                borderWidth: 1.5,
               },
             ],
           }}
@@ -158,43 +167,87 @@ function Card({ coin, currency, getCurrencySymbol, darkMode }) {
 // ---------------- DOTS ----------------
 function Dots({ total, index, setIndex, perPage, darkMode }) {
   const pages = Math.ceil(total / perPage);
+  const currentPage = Math.floor(index / perPage);
+  
+  const handlePrev = () => {
+    setIndex(Math.max(0, index - perPage));
+  };
+  
+  const handleNext = () => {
+    setIndex(Math.min(total - perPage, index + perPage));
+  };
+  
   return (
-    <div className="flex justify-center gap-2 mt-4">
-      {Array.from({ length: pages }).map((_, i) => (
-        <button
-          key={i}
-          onClick={() => setIndex(i * perPage)}
-          className={`w-3 h-3 rounded-full transition ${
-            index / perPage === i
-              ? darkMode
-                ? "bg-indigo-400"
-                : "bg-indigo-600"
-              : darkMode
-              ? "bg-gray-600"
-              : "bg-gray-400"
-          }`}
-        />
-      ))}
+    <div className="flex items-center justify-between mt-2">
+      <button
+        onClick={handlePrev}
+        disabled={index === 0}
+        className={`p-1 rounded ${
+          darkMode
+            ? "bg-gray-800 hover:bg-gray-700 disabled:opacity-30"
+            : "bg-gray-200 hover:bg-gray-300 disabled:opacity-30"
+        }`}
+      >
+        <ChevronLeft size={14} />
+      </button>
+      
+      <div className="flex gap-1">
+        {Array.from({ length: Math.min(pages, 5) }).map((_, i) => {
+          let pageToShow = i;
+          if (pages > 5) {
+            const start = Math.max(0, currentPage - 2);
+            const end = Math.min(pages, start + 5);
+            pageToShow = start + i;
+            if (pageToShow >= end) return null;
+          }
+          
+          return (
+            <button
+              key={pageToShow}
+              onClick={() => setIndex(pageToShow * perPage)}
+              className={`w-2 h-2 rounded-full transition ${
+                currentPage === pageToShow
+                  ? darkMode
+                    ? "bg-indigo-400"
+                    : "bg-indigo-600"
+                  : darkMode
+                  ? "bg-gray-600"
+                  : "bg-gray-400"
+              }`}
+            />
+          );
+        })}
+      </div>
+      
+      <button
+        onClick={handleNext}
+        disabled={index + perPage >= total}
+        className={`p-1 rounded ${
+          darkMode
+            ? "bg-gray-800 hover:bg-gray-700 disabled:opacity-30"
+            : "bg-gray-200 hover:bg-gray-300 disabled:opacity-30"
+        }`}
+      >
+        <ChevronRight size={14} />
+      </button>
     </div>
   );
 }
 
-// ---------------- APP ----------------
-function App() {
+// ---------------- DASHBOARD (Main content) ----------------
+function Dashboard() {
   const [cryptos, setCryptos] = useState([]);
-  const [news, setNews] = useState([]);
   const [view, setView] = useState("cards");
   const [search, setSearch] = useState("");
   const [currency, setCurrency] = useState("usd");
   const [darkMode, setDarkMode] = useState(true);
-
-  // controle carrossel
   const [cardIndex, setCardIndex] = useState(0);
   const [tableIndex, setTableIndex] = useState(0);
   const [autoScroll, setAutoScroll] = useState(true);
+  const navigate = useNavigate();
 
-  const perPageTable = 10;
-  const perPageCards = 4;
+  const perPageTable = 8;
+  const perPageCards = 6;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -208,17 +261,7 @@ function App() {
       }
     };
 
-    const fetchNews = async () => {
-      try {
-        const res = await axios.get("http://localhost:5000/api/news");
-        setNews(res.data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
     fetchData();
-    fetchNews();
   }, [currency]);
 
   // auto rolagem cards
@@ -260,18 +303,26 @@ function App() {
     .sort((a, b) => a.current_price - b.current_price)
     .slice(0, 5);
 
+  const handleRowClick = (coinId) => {
+    navigate(`/coin/${coinId}`);
+  };
+
   return (
     <div
       className={`${
-        darkMode ? "bg-gray-950 text-white" : "bg-gray-50 text-gray-900"
-      } min-h-screen font-sans flex flex-col`}
+        darkMode ? "bg-gray-950 text-white" : "bg-gray-300 text-gray-900"
+      } h-screen font-sans flex flex-col overflow-hidden`}
     >
+      <Header 
+        darkMode={darkMode} 
+        showBack={false}
+      />
 
-
-      <div className="flex-1 pt-32 pb-12 px-6 max-w-[1920px] mx-auto w-full">
+      {/* Conteúdo principal */}
+      <div className="flex-1 pt-16 pb-4 px-5 max-w-[1920px] mx-auto w-full flex flex-col overflow-hidden">
         {/* CONTROLES */}
-        <div className="flex flex-col sm:flex-row justify-between items-center w-full mb-8 gap-4">
-          <div className="flex flex-col sm:flex-row items-center gap-3">
+        <div className="flex flex-col sm:flex-row justify-between items-center w-full mb-3 gap-2">
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
             <input
               type="text"
               placeholder="Buscar criptomoeda..."
@@ -279,7 +330,7 @@ function App() {
                 darkMode
                   ? "bg-gray-800 text-white border-gray-700"
                   : "bg-white text-gray-900 border-gray-300"
-              } px-4 py-2 rounded-xl border shadow-sm w-full sm:w-64`}
+              } px-3 py-1.5 rounded-lg border shadow-sm w-full sm:w-48 text-xs`}
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -293,246 +344,378 @@ function App() {
               darkMode={darkMode}
             />
           </div>
-          <div className="flex flex-wrap gap-2 justify-center">
+          <div className="flex flex-wrap gap-1 justify-center">
             <button
-              className={`${
-                darkMode
-                  ? "bg-indigo-600 hover:bg-indigo-500"
-                  : "bg-indigo-500 hover:bg-indigo-400 text-white"
-              } px-4 py-2 rounded-xl shadow-md transition`}
-              onClick={() => setView((v) => (v === "cards" ? "table" : "cards"))}
+              className={`text-xs px-3 py-1.5 rounded-lg transition ${
+                view === "cards"
+                  ? darkMode
+                    ? "bg-indigo-600 text-white"
+                    : "bg-indigo-500 text-white"
+                  : darkMode
+                  ? "bg-gray-800 hover:bg-gray-700"
+                  : "bg-gray-200 hover:bg-gray-300"
+              }`}
+              onClick={() => setView("cards")}
             >
-              {view === "cards" ? "📊 Tabela" : "🗂️ Cards"}
+              Cards
             </button>
             <button
-              className={`${
+              className={`text-xs px-3 py-1.5 rounded-lg transition ${
+                view === "table"
+                  ? darkMode
+                    ? "bg-indigo-600 text-white"
+                    : "bg-indigo-500 text-white"
+                  : darkMode
+                  ? "bg-gray-800 hover:bg-gray-700"
+                  : "bg-gray-200 hover:bg-gray-300"
+              }`}
+              onClick={() => setView("table")}
+            >
+              Tabela
+            </button>
+            <button
+              className={`text-xs px-3 py-1.5 rounded-lg transition ${
                 darkMode
                   ? "bg-gray-800 hover:bg-gray-700"
                   : "bg-gray-200 hover:bg-gray-300"
-              } px-4 py-2 rounded-xl shadow-md transition`}
+              }`}
               onClick={() => setDarkMode((m) => !m)}
             >
-              {darkMode ? "☀️ Claro" : "🌙 Dark"}
+              {darkMode ? "☀️" : "🌙"}
             </button>
             <button
-              className={`${
-                darkMode
-                  ? "bg-purple-700 hover:bg-purple-600"
-                  : "bg-purple-500 hover:bg-purple-400 text-white"
-              } px-4 py-2 rounded-xl shadow-md transition`}
+              className={`text-xs px-3 py-1.5 rounded-lg transition ${
+                autoScroll
+                  ? darkMode
+                    ? "bg-green-600/20 text-green-400 border border-green-500/30"
+                    : "bg-green-100 text-green-600 border border-green-200"
+                  : darkMode
+                  ? "bg-gray-800 hover:bg-gray-700"
+                  : "bg-gray-200 hover:bg-gray-300"
+              }`}
               onClick={() => setAutoScroll((a) => !a)}
             >
-              {autoScroll ? "⏸️ Auto" : "▶️ Auto"}
+              {autoScroll ? "⏸️" : "▶️"}
             </button>
           </div>
         </div>
 
-        {/* DASHBOARD 60/40 */}
-        <div className="flex flex-col xl:flex-row gap-6 w-full">
-          {/* CARDS / TABELA - LADO ESQUERDO */}
-          <div className="xl:w-3/5 flex flex-col">
-            {view === "cards" ? (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-h-[400px]">
-                  {filteredCryptos
-                    .slice(cardIndex, cardIndex + perPageCards)
-                    .map((coin) => (
-                      <Card
-                        key={coin.id}
-                        coin={coin}
-                        currency={currency}
-                        getCurrencySymbol={getCurrencySymbol}
+        {/* DASHBOARD - AMBAS COLUNAS COM MESMA ALTURA */}
+        <div className="flex flex-col xl:flex-row gap-3 w-full flex-1 overflow-hidden">
+          {/* COLUNA ESQUERDA - CARDS/TABELA */}
+          <div className="xl:w-3/5 flex flex-col h-full">
+            <div className={`flex-1 flex flex-col ${
+              darkMode ? 'bg-gray-800/50' : 'bg-white/50'
+            } border rounded-lg p-3 ${
+              darkMode ? 'border-gray-700' : 'border-gray-300'
+            } overflow-hidden`}>
+              {view === "cards" ? (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 flex-1 min-h-0">
+                    {filteredCryptos
+                      .slice(cardIndex, cardIndex + perPageCards)
+                      .map((coin) => (
+                        <Card
+                          key={coin.id}
+                          coin={coin}
+                          currency={currency}
+                          getCurrencySymbol={getCurrencySymbol}
+                          darkMode={darkMode}
+                        />
+                      ))}
+                  </div>
+                  {filteredCryptos.length > perPageCards && (
+                    <div className="mt-2">
+                      <Dots
+                        total={filteredCryptos.length}
+                        index={cardIndex}
+                        setIndex={setCardIndex}
+                        perPage={perPageCards}
                         darkMode={darkMode}
                       />
-                    ))}
-                </div>
-                {filteredCryptos.length > 0 && (
-                  <Dots
-                    total={filteredCryptos.length}
-                    index={cardIndex}
-                    setIndex={setCardIndex}
-                    perPage={perPageCards}
-                    darkMode={darkMode}
-                  />
-                )}
-              </>
-            ) : (
-              <>
-                <div className="overflow-x-auto rounded-xl shadow-lg">
-                  <table
-                    className={`${
-                      darkMode ? "bg-gray-800 text-white" : "bg-white text-gray-900"
-                    } w-full table-auto text-sm text-center`}
-                  >
-                    <thead
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="flex-1 overflow-auto">
+                    <table
                       className={`${
-                        darkMode
-                          ? "bg-gray-700 text-gray-300"
-                          : "bg-gray-200 text-gray-700"
+                        darkMode ? "bg-gray-800" : "bg-white"
+                      } w-full text-xs`}
+                    >
+                      <thead
+                        className={`sticky top-0 ${
+                          darkMode ? "bg-gray-700" : "bg-gray-100"
+                        }`}
+                      >
+                        <tr>
+                          <th className="px-3 py-2 text-left">#</th>
+                          <th className="px-3 py-2 text-left">Moeda</th>
+                          <th className="px-3 py-2 text-left">Preço</th>
+                          <th className="px-3 py-2 text-left">% 24h</th>
+                          <th className="px-3 py-2 text-left">Cap</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredCryptos
+                          .slice(tableIndex, tableIndex + perPageTable)
+                          .map((coin, idx) => (
+                            <tr
+                              key={coin.id}
+                              onClick={() => handleRowClick(coin.id)}
+                              className={`border-t ${
+                                darkMode
+                                  ? "border-gray-700 hover:bg-gray-700/50"
+                                  : "border-gray-200 hover:bg-gray-50"
+                              } cursor-pointer`}
+                            >
+                              <td className="px-3 py-2">
+                                {tableIndex + idx + 1}
+                              </td>
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  <img
+                                    src={coin.image}
+                                    alt={coin.name}
+                                    className="w-5 h-5"
+                                  />
+                                  <div className="min-w-0">
+                                    <div className="font-medium text-xs">
+                                      {coin.symbol.toUpperCase()}
+                                    </div>
+                                    <div className="text-xs opacity-70 truncate">
+                                      {coin.name}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 font-medium text-xs">
+                                {getCurrencySymbol(currency)}{" "}
+                                {coin.current_price.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: coin.current_price < 1 ? 6 : 2,
+                                })}
+                              </td>
+                              <td
+                                className={`px-3 py-2 font-medium text-xs ${
+                                  coin.price_change_percentage_24h >= 0
+                                    ? "text-green-400"
+                                    : "text-red-500"
+                                }`}
+                              >
+                                {coin.price_change_percentage_24h?.toFixed(2)}%
+                              </td>
+                              <td className="px-3 py-2 text-xs">
+                                {getCurrencySymbol(currency)}{" "}
+                                {(coin.market_cap / 1000000000).toFixed(1)}B
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {filteredCryptos.length > perPageTable && (
+                    <div className="mt-2">
+                      <Dots
+                        total={filteredCryptos.length}
+                        index={tableIndex}
+                        setIndex={setTableIndex}
+                        perPage={perPageTable}
+                        darkMode={darkMode}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* COLUNA DIREITA - TOP/BOTTOM */}
+          <div className="xl:w-2/5 flex flex-col h-full">
+            <div className={`flex-1 flex flex-col ${
+              darkMode ? 'bg-gray-800/50' : 'bg-white/50'
+            } border rounded-lg p-3 ${
+              darkMode ? 'border-gray-700' : 'border-gray-300'
+            } overflow-hidden`}>
+              {/* TOP 5 */}
+              <div className="flex-1 flex flex-col mb-3 min-h-0">
+                <h3 className="text-xs font-semibold mb-2 flex items-center">
+                  <span className="mr-1">💎</span> Top 5 - Maior Preço
+                </h3>
+                <div className="flex-1 overflow-auto min-h-0">
+                  <table className="w-full text-xs">
+                    <thead
+                      className={`sticky top-0 ${
+                        darkMode ? "bg-gray-700" : "bg-gray-100"
                       }`}
                     >
                       <tr>
-                        <th className="px-4 py-3">#</th>
-                        <th className="px-4 py-3 text-left">Moeda</th>
-                        <th className="px-4 py-3">Preço</th>
-                        <th className="px-4 py-3">% 24h</th>
-                        <th className="px-4 py-3">Market Cap</th>
+                        <th className="p-1 text-left">#</th>
+                        <th className="p-1 text-left">Moeda</th>
+                        <th className="p-1 text-right">Preço</th>
+                        <th className="p-1 text-right">% 24h</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredCryptos
-                        .slice(tableIndex, tableIndex + perPageTable)
-                        .map((coin, idx) => (
-                          <tr key={coin.id} className={idx % 2 === 0 ? (darkMode ? "bg-gray-900" : "bg-gray-100") : ""}>
-                            <td className="px-4 py-3">{tableIndex + idx + 1}</td>
-                            <td className="px-4 py-3 flex items-center gap-2">
+                      {top5.map((coin, idx) => (
+                        <tr
+                          key={coin.id}
+                          onClick={() => handleRowClick(coin.id)}
+                          className={`border-t ${
+                            darkMode
+                              ? "border-gray-700 hover:bg-gray-700/50"
+                              : "border-gray-200 hover:bg-gray-50"
+                          } cursor-pointer`}
+                        >
+                          <td className="p-1 text-center">
+                            <div
+                              className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                                idx === 0
+                                  ? "bg-yellow-500 text-white"
+                                  : idx === 1
+                                  ? "bg-gray-400 text-white"
+                                  : idx === 2
+                                  ? "bg-amber-700 text-white"
+                                  : "bg-gray-600 text-white"
+                              }`}
+                            >
+                              {idx + 1}
+                            </div>
+                          </td>
+                          <td className="p-1">
+                            <div className="flex items-center gap-1">
                               <img
                                 src={coin.image}
                                 alt={coin.name}
-                                className="w-6 h-6"
+                                className="w-5 h-5"
                               />
-                              <span className="truncate max-w-[120px]">
-                                {coin.name} ({coin.symbol.toUpperCase()})
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              {getCurrencySymbol(currency)}{" "}
-                              {coin.current_price.toLocaleString()}
-                            </td>
-                            <td
-                              className={`px-4 py-3 font-semibold ${
-                                coin.price_change_percentage_24h >= 0
-                                  ? "text-green-400"
-                                  : "text-red-500"
-                              }`}
-                            >
-                              {coin.price_change_percentage_24h?.toFixed(2)}%
-                            </td>
-                            <td className="px-4 py-3">
-                              {getCurrencySymbol(currency)}{" "}
-                              {coin.market_cap.toLocaleString()}
-                            </td>
-                          </tr>
-                        ))}
+                              <div className="font-medium">
+                                {coin.symbol.toUpperCase()}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-1 text-right font-medium">
+                            {getCurrencySymbol(currency)}{" "}
+                            {coin.current_price.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: coin.current_price < 1 ? 6 : 2,
+                            })}
+                          </td>
+                          <td
+                            className={`p-1 text-right font-medium ${
+                              coin.price_change_percentage_24h >= 0
+                                ? "text-green-400"
+                                : "text-red-500"
+                            }`}
+                          >
+                            {coin.price_change_percentage_24h?.toFixed(2)}%
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
-                {filteredCryptos.length > 0 && (
-                  <Dots
-                    total={filteredCryptos.length}
-                    index={tableIndex}
-                    setIndex={setTableIndex}
-                    perPage={perPageTable}
-                    darkMode={darkMode}
-                  />
-                )}
-              </>
-            )}
-          </div>
+              </div>
 
-{/* LADO DIREITO */}
-<div className="xl:w-2/5 flex flex-col gap-8 ">
-  {/* Os ativos digitais com maior preço unitário */}
-  <div className={` p-2 rounded-lg shadow-md ${darkMode ? "bg-gray-800" : "bg-white"} h-60 `}>
-    <h3 className="text-sm font-semibold mb-1 flex items-center justify-center">
-      <span className="mr-1">💎</span> Os ativos digitais com maior preço unitário
-    </h3>
-    <div className="overflow-x-auto">
-      <table className="w-full text-xs">
-        <thead className={`${darkMode ? "bg-gray-700" : "bg-gray-200"} text-left`}>
-          <tr className="h-7">
-            <th className="p-2 w-6">#</th>
-            <th className="p-2">Moeda</th>
-            <th className="p-2 text-right">Preço</th>
-          </tr>
-        </thead>
-        <tbody>
-          {top5.map((coin, idx) => (
-            <tr key={coin.id} className="h-6">
-              <td className="p-2 text-center">{idx + 1}</td>
-              <td className="p-1 flex items-center gap-1">
-                <img
-                  src={coin.image}
-                  alt={coin.name}
-                  className="w-5 h-5"
-                />
-                <span className="truncate max-w-[60px]">
-                  {coin.symbol.toUpperCase()}
-                </span>
-              </td>
-              <td className="p-2 text-right font-medium">
-                {getCurrencySymbol(currency)} {coin.current_price.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: coin.current_price < 1 ? 6 : 2
-                })}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  {/* Os ativos digitais com menor preço unitário */}
-  <div className={`p-2 rounded-lg shadow-md ${darkMode ? "bg-gray-800" : "bg-white"} h-60`}>
-    <h3 className="text-sm font-semibold mb-1 flex items-center justify-center">
-      <span className="mr-1">💰</span> Os ativos digitais com menor preço unitário
-    </h3>
-    <div className="overflow-x-auto">
-      <table className="w-full text-xs">
-        <thead className={`${darkMode ? "bg-gray-700" : "bg-gray-200"} text-left`}>
-          <tr className="h-7">
-            <th className="p-2 w-6">#</th>
-            <th className="p-2">Moeda</th>
-            <th className="p-1 text-right">Preço</th>
-          </tr>
-        </thead>
-        <tbody>
-          {bottom5.map((coin, idx) => (
-            <tr key={coin.id} className="h-6">
-              <td className="p-2 text-center">{idx + 1}</td>
-              <td className="p-1 flex items-center gap-1">
-                <img
-                  src={coin.image}
-                  alt={coin.name}
-                  className="w-5 h-5"
-                />
-                <span className="truncate max-w-[60px]">
-                  {coin.symbol.toUpperCase()}
-                </span>
-              </td>
-              <td className="p-2 text-right font-medium">
-                {getCurrencySymbol(currency)} {coin.current_price.toLocaleString(undefined, {
-                  minimumFractionDigits: 1,
-                  maximumFractionDigits: coin.current_price < 1 ? 6 : 2
-                })}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
+              {/* BOTTOM 5 */}
+              <div className="flex-1 flex flex-col min-h-0">
+                <h3 className="text-xs font-semibold mb-2 flex items-center">
+                  <span className="mr-1">💰</span> Top 5 - Menor Preço
+                </h3>
+                <div className="flex-1 overflow-auto min-h-0">
+                  <table className="w-full text-xs">
+                    <thead
+                      className={`sticky top-0 ${
+                        darkMode ? "bg-gray-700" : "bg-gray-100"
+                      }`}
+                    >
+                      <tr>
+                        <th className="p-1 text-left">#</th>
+                        <th className="p-1 text-left">Moeda</th>
+                        <th className="p-1 text-right">Preço</th>
+                        <th className="p-1 text-right">% 24h</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bottom5.map((coin, idx) => (
+                        <tr
+                          key={coin.id}
+                          onClick={() => handleRowClick(coin.id)}
+                          className={`border-t ${
+                            darkMode
+                              ? "border-gray-700 hover:bg-gray-700/50"
+                              : "border-gray-200 hover:bg-gray-50"
+                          } cursor-pointer`}
+                        >
+                          <td className="p-1 text-center">
+                            <div
+                              className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                                idx === 0
+                                  ? "bg-blue-500 text-white"
+                                  : idx === 1
+                                  ? "bg-gray-400 text-white"
+                                  : idx === 2
+                                  ? "bg-amber-700 text-white"
+                                  : "bg-gray-600 text-white"
+                              }`}
+                            >
+                              {idx + 1}
+                            </div>
+                          </td>
+                          <td className="p-1">
+                            <div className="flex items-center gap-1">
+                              <img
+                                src={coin.image}
+                                alt={coin.name}
+                                className="w-5 h-5"
+                              />
+                              <div className="font-medium">
+                                {coin.symbol.toUpperCase()}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-1 text-right font-medium">
+                            {getCurrencySymbol(currency)}{" "}
+                            {coin.current_price.toLocaleString(undefined, {
+                              minimumFractionDigits: coin.current_price > 1000 ? 0 : 2,
+                              maximumFractionDigits: coin.current_price < 1 ? 6 : 2,
+                            })}
+                          </td>
+                          <td
+                            className={`p-1 text-right font-medium ${
+                              coin.price_change_percentage_24h >= 0
+                                ? "text-green-400"
+                                : "text-red-500"
+                            }`}
+                          >
+                            {coin.price_change_percentage_24h?.toFixed(2)}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <style>{`
-        @keyframes marquee {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-        .animate-marquee {
-          animation: marquee 30s linear infinite;
-        }
-        .animate-marquee:hover {
-          animation-play-state: paused;
-        }
-      `}</style>
-
       <Footer darkMode={darkMode} />
     </div>
+  );
+}
+
+// ---------------- MAIN APP COMPONENT ----------------
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/coin/:id" element={<CoinDetails />} />
+      </Routes>
+    </Router>
   );
 }
 

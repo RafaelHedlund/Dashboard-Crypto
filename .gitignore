@@ -1,10 +1,10 @@
-# dependências
+# node
 node_modules/
 
 # build
 dist/
 
-# env
+# env (MUITO IMPORTANTE)
 .env
 backend/.env
 frontend/.env
