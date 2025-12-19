@@ -249,20 +249,34 @@ function Dashboard() {
   const perPageTable = 8;
   const perPageCards = 6;
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await axios.get("http://localhost:5000/api/crypto", {
-          params: { per_page: 100, page: 1, vs_currency: currency },
-        });
-        setCryptos(res.data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const res = await axios.get(
+        "https://api.coingecko.com/api/v3/coins/markets",
+        {
+          params: {
+            vs_currency: currency,
+            order: "market_cap_desc",
+            per_page: 100,
+            page: 1,
+            sparkline: true,
+            price_change_percentage: "24h",
+          },
+          headers: {
+            Accept: "application/json",
+          },
+        }
+      );
+      setCryptos(res.data);
+    } catch (err) {
+      console.error("Erro ao buscar criptos:", err);
+    }
+  };
 
-    fetchData();
-  }, [currency]);
+  fetchData();
+}, [currency]);
+
 
   // auto rolagem cards
   useEffect(() => {

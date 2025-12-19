@@ -39,7 +39,7 @@ app.get('/api/crypto', async (req, res) => {
           page: 1,
           sparkline: true,
           price_change_percentage: '24h'
-        }
+        },
       }
     );
 
