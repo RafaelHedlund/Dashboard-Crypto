@@ -8,48 +8,14 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ================= CORS OTIMIZADO PARA PRODUÇÃO =================
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Permite requisições sem origin (curl, postman, etc)
-    if (!origin) return callback(null, true);
-    
-    const allowedOrigins = [
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'https://crypto-dashboard.vercel.app',
-      'https://crypto-dashboard-*.vercel.app',
-      'https://crypto-dashboard-git-*.vercel.app',
-      /\.vercel\.app$/
-    ];
-    
-    const isAllowed = allowedOrigins.some(allowed => {
-      if (typeof allowed === 'string') {
-        // Para strings com *, use match simples
-        if (allowed.includes('*')) {
-          const regex = new RegExp(allowed.replace('*', '.*'));
-          return regex.test(origin);
-        }
-        return origin === allowed;
-      }
-      if (allowed instanceof RegExp) {
-        return allowed.test(origin);
-      }
-      return false;
-    });
-    
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      console.log(`🚫 CORS bloqueado para origem: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+// ================= CORS TEMPORÁRIO (PERMITE TUDO PARA TESTE) =================
+// Vamos simplificar temporariamente para testar a conexão
+app.use(cors({
+  origin: '*',  // PERMITE TODAS AS ORIGENS - DEPOIS TROCAMOS DE VOLTA
   credentials: false,
   optionsSuccessStatus: 200
-};
+}));
 
-app.use(cors(corsOptions));
 app.use(express.json());
 
 // ================= LOGGING PARA DEBUG =================
@@ -253,7 +219,7 @@ app.get('/', (req, res) => {
     },
     example: {
       frontendURL: 'https://crypto-dashboard.vercel.app',
-      apiURL: 'https://crypto-backend.onrender.com'
+      apiURL: 'https://dashboard-crypto-1.onrender.com'  // ATUALIZEI PARA SUA URL
     }
   });
 });
@@ -273,11 +239,12 @@ app.use((req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+// ================= CORREÇÃO CRÍTICA: VINCULAÇÃO DO SERVIDOR =================
+// TROQUE A ÚLTIMA LINHA PARA:
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`
-  🚀  Backend iniciado!
-  ⚡  URL: http://localhost:${PORT}
-  📊  Health: http://localhost:${PORT}/api/health
+  🚀  Backend iniciado no Render!
+  ⚡  Porta: ${PORT}
   🔧  Ambiente: ${process.env.NODE_ENV || 'development'}
   ⏱️  Cache: ${CACHE_TIME}ms
   `);
