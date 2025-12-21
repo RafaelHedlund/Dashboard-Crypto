@@ -9,19 +9,18 @@ import CoinDetails from "./assets/components/CoinDetails";
 
 // ================= CONFIGURAÇÃO DINÂMICA DO BACKEND =================
 const getApiBaseUrl = () => {
-  if (process.env.NODE_ENV === 'production') {
-    if (process.env.REACT_APP_API_URL) {
-      return process.env.REACT_APP_API_URL;
-    }
-    return window.location.origin.includes('localhost') 
-      ? "http://localhost:5000" 
-      : "https://seu-backend.onrender.com";
+  // Se estiver em produção, use a variável de ambiente ou a URL do Render
+  if (import.meta.env.PROD) {
+    // Se a variável de ambiente VITE_API_URL estiver definida, use-a, senão use a URL do Render
+    return import.meta.env.VITE_API_URL || 'https://dashboard-crypto-1.onrender.com';
   }
-  return "http://localhost:5000";
+  // Em desenvolvimento, use localhost
+  return 'http://localhost:5000';
 };
 
 const API_BASE_URL = getApiBaseUrl();
 axios.defaults.baseURL = API_BASE_URL;
+console.log('🌐 API Base URL:', API_BASE_URL);
 
 // ================= COMPONENTES REUTILIZÁVEIS =================
 
