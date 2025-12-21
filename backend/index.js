@@ -8,26 +8,40 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ================= CORS ATUALIZADO =================
+// ================= CORS OTIMIZADO PARA PRODUÇÃO =================
 const corsOptions = {
   origin: function (origin, callback) {
+    // Permite requisições sem origin (curl, postman, etc)
     if (!origin) return callback(null, true);
     
     const allowedOrigins = [
       'http://localhost:5173',
       'http://localhost:3000',
-      'https://crypto-dashboard-frontend.vercel.app',
-      'https://*.vercel.app',
+      'https://crypto-dashboard.vercel.app',
+      'https://crypto-dashboard-*.vercel.app',
+      'https://crypto-dashboard-git-*.vercel.app',
       /\.vercel\.app$/
     ];
     
-    if (allowedOrigins.some(allowed => {
-      if (typeof allowed === 'string') return origin === allowed;
-      if (allowed instanceof RegExp) return allowed.test(origin);
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (typeof allowed === 'string') {
+        // Para strings com *, use match simples
+        if (allowed.includes('*')) {
+          const regex = new RegExp(allowed.replace('*', '.*'));
+          return regex.test(origin);
+        }
+        return origin === allowed;
+      }
+      if (allowed instanceof RegExp) {
+        return allowed.test(origin);
+      }
       return false;
-    })) {
+    });
+    
+    if (isAllowed) {
       callback(null, true);
     } else {
+      console.log(`🚫 CORS bloqueado para origem: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -38,10 +52,15 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
+// ================= LOGGING PARA DEBUG =================
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url} - Origin: ${req.headers.origin || 'No origin'}`);
+  next();
+});
+
 // ================= CACHE CORRIGIDO =================
-// Agora o cache armazena por moeda
 const cache = {
-  crypto: {}, // Mudado para objeto: { "usd": {data, time}, "brl": {data, time}, ... }
+  crypto: {},
   coinDetails: {},
 };
 
@@ -53,10 +72,9 @@ app.get('/api/crypto', async (req, res) => {
     const now = Date.now();
     const { vs_currency = 'usd' } = req.query;
 
-    // VERIFICA CACHE ESPECÍFICO PARA A MOEDA
     const cacheKey = vs_currency;
     if (cache.crypto[cacheKey] && now - cache.crypto[cacheKey].time < CACHE_TIME) {
-      console.log(`📦 Retornando cache para moeda: ${vs_currency}`);
+      console.log(`📦 Cache hit para moeda: ${vs_currency}`);
       return res.json(cache.crypto[cacheKey].data);
     }
 
@@ -87,18 +105,16 @@ app.get('/api/crypto', async (req, res) => {
       sparkline_in_7d: c.sparkline_in_7d
     }));
 
-    // ARMAZENA NO CACHE COM A CHAVE DA MOEDA
     cache.crypto[cacheKey] = { data: coins, time: now };
-    console.log(`✅ Dados armazenados em cache para moeda: ${vs_currency}`);
+    console.log(`✅ Dados armazenados em cache para: ${vs_currency} (${coins.length} moedas)`);
     
     res.json(coins);
   } catch (e) {
-    console.error('Error fetching crypto list:', e.message);
+    console.error('❌ Erro buscando lista de criptos:', e.message);
     
-    // Tenta retornar cache da moeda específica em caso de erro
     const cacheKey = req.query.vs_currency || 'usd';
     if (cache.crypto[cacheKey] && cache.crypto[cacheKey].data) {
-      console.log(`⚠️  Erro na API, retornando cache antigo para: ${cacheKey}`);
+      console.log(`⚠️  Retornando cache antigo para: ${cacheKey}`);
       return res.json(cache.crypto[cacheKey].data);
     }
     
@@ -110,17 +126,17 @@ app.get('/api/crypto', async (req, res) => {
   }
 });
 
-// O resto do código permanece igual...
 app.get('/api/coin/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const now = Date.now();
-    const { currency = 'usd' } = req.query;
 
     if (cache.coinDetails[id] && now - cache.coinDetails[id].time < CACHE_TIME) {
+      console.log(`📦 Cache hit para moeda: ${id}`);
       return res.json(cache.coinDetails[id].data);
     }
 
+    console.log(`🔄 Buscando detalhes para moeda: ${id}`);
     const response = await axios.get(
       `https://api.coingecko.com/api/v3/coins/${id}`,
       {
@@ -161,12 +177,15 @@ app.get('/api/coin/:id', async (req, res) => {
     };
 
     cache.coinDetails[id] = { data: formattedData, time: now };
+    console.log(`✅ Detalhes armazenados em cache para: ${id}`);
+    
     res.json(formattedData);
     
   } catch (error) {
-    console.error(`Error fetching details for ${req.params.id}:`, error.message);
+    console.error(`❌ Erro buscando detalhes para ${req.params.id}:`, error.message);
     
     if (cache.coinDetails[req.params.id]) {
+      console.log(`⚠️  Retornando cache antigo para: ${req.params.id}`);
       return res.json(cache.coinDetails[req.params.id].data);
     }
     
@@ -184,9 +203,11 @@ app.get('/api/health', (req, res) => {
     status: 'OK', 
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
     cache: {
-      crypto: Object.keys(cache.crypto).length, // Mostra quantas moedas estão em cache
-      coinDetails: Object.keys(cache.coinDetails).length,
+      cryptoCurrencies: Object.keys(cache.crypto),
+      coinDetails: Object.keys(cache.coinDetails),
       cacheTime: CACHE_TIME
     }
   });
@@ -196,33 +217,68 @@ app.get('/api/keepalive', (req, res) => {
   res.json({ 
     status: 'ALIVE', 
     timestamp: new Date().toISOString(),
-    message: 'Backend is awake!'
+    message: 'Backend está acordado!',
+    uptime: process.uptime()
   });
 });
 
 app.get('/api/clear-cache', (req, res) => {
-  cache.crypto = {}; // Agora é um objeto vazio
+  const cryptoCount = Object.keys(cache.crypto).length;
+  const coinDetailsCount = Object.keys(cache.coinDetails).length;
+  
+  cache.crypto = {};
   cache.coinDetails = {};
-  res.json({ message: 'Cache cleared successfully' });
+  
+  res.json({ 
+    message: 'Cache limpo com sucesso',
+    cleared: {
+      cryptoEntries: cryptoCount,
+      coinDetails: coinDetailsCount
+    }
+  });
 });
 
 app.get('/', (req, res) => {
   res.json({
     message: '🚀 Crypto Dashboard Backend API',
     version: '1.0.0',
+    status: 'operational',
+    documentation: 'https://github.com/RafaelHedlund/crypto-dashboard',
     endpoints: {
-      cryptoList: '/api/crypto?vs_currency=usd',
-      coinDetails: '/api/coin/{id}',
+      cryptoList: 'GET /api/crypto?vs_currency=usd',
+      coinDetails: 'GET /api/coin/:id',
+      health: 'GET /api/health',
+      keepAlive: 'GET /api/keepalive',
+      clearCache: 'GET /api/clear-cache'
+    },
+    example: {
+      frontendURL: 'https://crypto-dashboard.vercel.app',
+      apiURL: 'https://crypto-backend.onrender.com'
+    }
+  });
+});
+
+// ================= ROTA DE FALLBACK =================
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'Endpoint não encontrado',
+    availableEndpoints: {
+      root: '/',
+      cryptoList: '/api/crypto',
+      coinDetails: '/api/coin/:id',
       health: '/api/health',
       keepAlive: '/api/keepalive',
       clearCache: '/api/clear-cache'
-    },
-    documentation: 'Frontend: https://github.com/RafaelHedlund/crypto-dashboard'
+    }
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Backend rodando em http://localhost:${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`
+  🚀  Backend iniciado!
+  ⚡  URL: http://localhost:${PORT}
+  📊  Health: http://localhost:${PORT}/api/health
+  🔧  Ambiente: ${process.env.NODE_ENV || 'development'}
+  ⏱️  Cache: ${CACHE_TIME}ms
+  `);
 });
