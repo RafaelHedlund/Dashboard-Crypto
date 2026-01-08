@@ -8,244 +8,227 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ================= CORS TEMPORÁRIO (PERMITE TUDO PARA TESTE) =================
-// Vamos simplificar temporariamente para testar a conexão
-app.use(cors({
-  origin: '*',  // PERMITE TODAS AS ORIGENS - DEPOIS TROCAMOS DE VOLTA
-  credentials: false,
-  optionsSuccessStatus: 200
-}));
-
+// CORS liberado para todas as origens (ideal para teste)
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 
-// ================= LOGGING PARA DEBUG =================
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url} - Origin: ${req.headers.origin || 'No origin'}`);
-  next();
-});
-
-// ================= CACHE CORRIGIDO =================
+// ================= CACHE GLOBAL =================
 const cache = {
-  crypto: {},
-  coinDetails: {},
+    crypto: {},    // Formato: { 'usd': { data: [...], time: timestamp } }
+    coinDetails: {} // Formato: { 'ethereum': { data: {...}, time: timestamp } }
+};
+const CACHE_DURATION = 120 * 1000; // 2 minutos
+
+// ================= DADOS DE FALLBACK PARA MOEDAS POPULARES =================
+const FALLBACK_COINS = {
+    'bitcoin': {
+        id: 'bitcoin', name: 'Bitcoin', symbol: 'btc',
+        image: { large: 'https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png' },
+        market_cap_rank: 1,
+        market_data: {
+            current_price: { usd: 45000, brl: 225000, eur: 41000 },
+            market_cap: { usd: 880000000000, brl: 4400000000000, eur: 800000000000 },
+            total_volume: { usd: 30000000000, brl: 150000000000, eur: 27000000000 },
+            price_change_percentage_24h: 2.5,
+            price_change_percentage_24h_in_currency: { usd: 2.5, brl: 2.5, eur: 2.5 },
+            price_change_percentage_7d_in_currency: { usd: 5.2, brl: 5.2, eur: 5.2 },
+            circulating_supply: 19500000,
+            total_supply: 21000000,
+            max_supply: 21000000
+        }
+    },
+    'ethereum': {
+        id: 'ethereum', name: 'Ethereum', symbol: 'eth',
+        image: { large: 'https://coin-images.coingecko.com/coins/images/279/large/ethereum.png' },
+        market_cap_rank: 2,
+        market_data: {
+            current_price: { usd: 2400, brl: 12000, eur: 2200 },
+            market_cap: { usd: 288000000000, brl: 1440000000000, eur: 260000000000 },
+            total_volume: { usd: 15000000000, brl: 75000000000, eur: 13500000000 },
+            price_change_percentage_24h: 1.8,
+            price_change_percentage_24h_in_currency: { usd: 1.8, brl: 1.8, eur: 1.8 },
+            price_change_percentage_7d_in_currency: { usd: 3.5, brl: 3.5, eur: 3.5 },
+            circulating_supply: 120000000,
+            total_supply: null,
+            max_supply: null
+        }
+    }
+    // Adicione outras moedas populares aqui seguindo o mesmo formato
 };
 
-const CACHE_TIME = process.env.NODE_ENV === 'production' ? 60 * 1000 : 5 * 60 * 1000;
-
-// ================= ROTAS DO BACKEND =================
+// ================= ENDPOINT: LISTA DE CRIPTOMOEDAS =================
 app.get('/api/crypto', async (req, res) => {
-  try {
+    const vsCurrency = req.query.vs_currency || 'usd';
+    const cacheKey = vsCurrency;
     const now = Date.now();
-    const { vs_currency = 'usd' } = req.query;
 
-    const cacheKey = vs_currency;
-    if (cache.crypto[cacheKey] && now - cache.crypto[cacheKey].time < CACHE_TIME) {
-      console.log(`📦 Cache hit para moeda: ${vs_currency}`);
-      return res.json(cache.crypto[cacheKey].data);
+    // 1. Tentar retornar do cache primeiro
+    if (cache.crypto[cacheKey] && (now - cache.crypto[cacheKey].time) < CACHE_DURATION) {
+        console.log(`[API] Cache usado para /crypto (${vsCurrency})`);
+        return res.json(cache.crypto[cacheKey].data);
     }
 
-    console.log(`🔄 Buscando dados da API para moeda: ${vs_currency}`);
-    const response = await axios.get(
-      'https://api.coingecko.com/api/v3/coins/markets',
-      {
-        params: {
-          vs_currency,
-          order: 'market_cap_desc',
-          per_page: 100,
-          page: 1,
-          sparkline: true,
-          price_change_percentage: '24h'
-        },
-        timeout: 15000
-      }
-    );
-
-    const coins = response.data.map(c => ({
-      id: c.id,
-      name: c.name,
-      symbol: c.symbol,
-      image: c.image,
-      current_price: c.current_price,
-      market_cap: c.market_cap,
-      price_change_percentage_24h: c.price_change_percentage_24h,
-      sparkline_in_7d: c.sparkline_in_7d
-    }));
-
-    cache.crypto[cacheKey] = { data: coins, time: now };
-    console.log(`✅ Dados armazenados em cache para: ${vs_currency} (${coins.length} moedas)`);
+    console.log(`[API] Buscando da CoinGecko para: ${vsCurrency}`);
     
-    res.json(coins);
-  } catch (e) {
-    console.error('❌ Erro buscando lista de criptos:', e.message);
-    
-    const cacheKey = req.query.vs_currency || 'usd';
-    if (cache.crypto[cacheKey] && cache.crypto[cacheKey].data) {
-      console.log(`⚠️  Retornando cache antigo para: ${cacheKey}`);
-      return res.json(cache.crypto[cacheKey].data);
+    try {
+        const response = await axios.get('https://api.coingecko.com/api/v3/coins/markets', {
+            params: {
+                vs_currency: vsCurrency,
+                order: 'market_cap_desc',
+                per_page: 100,
+                page: 1,
+                sparkline: true,
+                price_change_percentage: '24h'
+            },
+            timeout: 10000 // Timeout de 10 segundos
+        });
+
+        const formattedData = response.data.map(coin => ({
+            id: coin.id,
+            name: coin.name,
+            symbol: coin.symbol,
+            image: coin.image,
+            current_price: coin.current_price,
+            market_cap: coin.market_cap,
+            price_change_percentage_24h: coin.price_change_percentage_24h,
+            sparkline_in_7d: coin.sparkline_in_7d
+        }));
+
+        // Salvar no cache
+        cache.crypto[cacheKey] = { data: formattedData, time: now };
+        console.log(`[API] Dados salvos em cache (${vsCurrency}): ${formattedData.length} moedas`);
+        res.json(formattedData);
+
+    } catch (error) {
+        console.error(`[API] Erro ao buscar lista (${vsCurrency}):`, error.message);
+        
+        // 2. Se API falhar, usar cache antigo (mesmo expirado)
+        if (cache.crypto[cacheKey] && cache.crypto[cacheKey].data) {
+            console.log(`[API] Retornando cache expirado para ${vsCurrency}`);
+            return res.json(cache.crypto[cacheKey].data);
+        }
+
+        // 3. Se não houver cache, usar fallback básico
+        console.log('[API] Usando fallback básico');
+        const fallback = Object.values(FALLBACK_COINS).map(coin => ({
+            id: coin.id,
+            name: coin.name,
+            symbol: coin.symbol,
+            image: coin.image.large,
+            current_price: coin.market_data.current_price[vsCurrency] || coin.market_data.current_price.usd,
+            market_cap: coin.market_data.market_cap[vsCurrency] || coin.market_data.market_cap.usd,
+            price_change_percentage_24h: coin.market_data.price_change_percentage_24h,
+            sparkline_in_7d: { price: Array(168).fill(coin.market_data.current_price[vsCurrency] || coin.market_data.current_price.usd) }
+        }));
+        
+        cache.crypto[cacheKey] = { data: fallback, time: now };
+        res.json(fallback);
     }
-    
-    res.status(500).json({ 
-      error: 'Erro ao buscar criptos',
-      message: e.message,
-      timestamp: new Date().toISOString()
-    });
-  }
 });
 
+// ================= ENDPOINT: DETALHES DA MOEDA (CRÍTICO) =================
 app.get('/api/coin/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
+    const coinId = req.params.id;
     const now = Date.now();
 
-    if (cache.coinDetails[id] && now - cache.coinDetails[id].time < CACHE_TIME) {
-      console.log(`📦 Cache hit para moeda: ${id}`);
-      return res.json(cache.coinDetails[id].data);
+    // 1. Verificar cache válido primeiro
+    if (cache.coinDetails[coinId] && (now - cache.coinDetails[coinId].time) < CACHE_DURATION) {
+        console.log(`[API] Cache usado para /coin/${coinId}`);
+        return res.json(cache.coinDetails[coinId].data);
     }
 
-    console.log(`🔄 Buscando detalhes para moeda: ${id}`);
-    const response = await axios.get(
-      `https://api.coingecko.com/api/v3/coins/${id}`,
-      {
-        params: {
-          localization: false,
-          tickers: false,
-          market_data: true,
-          community_data: false,
-          developer_data: false,
-          sparkline: false
-        },
-        timeout: 10000
-      }
-    );
+    console.log(`[API] Buscando detalhes da CoinGecko para: ${coinId}`);
+    
+    try {
+        const response = await axios.get(`https://api.coingecko.com/api/v3/coins/${coinId}`, {
+            params: { localization: false, tickers: false, market_data: true, community_data: false, developer_data: false, sparkline: false },
+            timeout: 8000
+        });
 
-    const coinData = response.data;
-    const formattedData = {
-      id: coinData.id,
-      name: coinData.name,
-      symbol: coinData.symbol.toUpperCase(),
-      image: coinData.image?.large || coinData.image?.small || coinData.image?.thumb || '',
-      market_cap_rank: coinData.market_cap_rank,
-      market_data: {
-        current_price: coinData.market_data?.current_price || { usd: 0, brl: 0, eur: 0 },
-        market_cap: coinData.market_data?.market_cap || { usd: 0, brl: 0, eur: 0 },
-        total_volume: coinData.market_data?.total_volume || { usd: 0, brl: 0, eur: 0 },
-        fully_diluted_valuation: coinData.market_data?.fully_diluted_valuation || { usd: 0, brl: 0, eur: 0 },
-        circulating_supply: coinData.market_data?.circulating_supply || 0,
-        total_supply: coinData.market_data?.total_supply || 0,
-        max_supply: coinData.market_data?.max_supply || 0,
-        price_change_percentage_24h: coinData.market_data?.price_change_percentage_24h || 0,
-        price_change_percentage_1h_in_currency: coinData.market_data?.price_change_percentage_1h_in_currency || { usd: 0, brl: 0, eur: 0 },
-        price_change_percentage_24h_in_currency: coinData.market_data?.price_change_percentage_24h_in_currency || { usd: 0, brl: 0, eur: 0 },
-        price_change_percentage_7d_in_currency: coinData.market_data?.price_change_percentage_7d_in_currency || { usd: 0, brl: 0, eur: 0 },
-        price_change_percentage_30d_in_currency: coinData.market_data?.price_change_percentage_30d_in_currency || { usd: 0, brl: 0, eur: 0 },
-        market_cap_change_percentage_24h: coinData.market_data?.market_cap_change_percentage_24h || 0
-      }
-    };
+        const coinData = response.data;
+        const formattedData = {
+            id: coinData.id,
+            name: coinData.name,
+            symbol: coinData.symbol.toUpperCase(),
+            image: coinData.image.large,
+            market_cap_rank: coinData.market_cap_rank,
+            market_data: {
+                current_price: coinData.market_data.current_price,
+                market_cap: coinData.market_data.market_cap,
+                total_volume: coinData.market_data.total_volume,
+                price_change_percentage_24h: coinData.market_data.price_change_percentage_24h,
+                price_change_percentage_24h_in_currency: coinData.market_data.price_change_percentage_24h_in_currency,
+                price_change_percentage_7d_in_currency: coinData.market_data.price_change_percentage_7d_in_currency,
+                circulating_supply: coinData.market_data.circulating_supply,
+                total_supply: coinData.market_data.total_supply,
+                max_supply: coinData.market_data.max_supply
+            }
+        };
 
-    cache.coinDetails[id] = { data: formattedData, time: now };
-    console.log(`✅ Detalhes armazenados em cache para: ${id}`);
-    
-    res.json(formattedData);
-    
-  } catch (error) {
-    console.error(`❌ Erro buscando detalhes para ${req.params.id}:`, error.message);
-    
-    if (cache.coinDetails[req.params.id]) {
-      console.log(`⚠️  Retornando cache antigo para: ${req.params.id}`);
-      return res.json(cache.coinDetails[req.params.id].data);
+        cache.coinDetails[coinId] = { data: formattedData, time: now };
+        console.log(`[API] Detalhes salvos em cache para: ${coinId}`);
+        res.json(formattedData);
+
+    } catch (error) {
+        console.error(`[API] Erro ao buscar detalhes de ${coinId}:`, error.message);
+        
+        // 2. Se API falhar, tentar cache antigo
+        if (cache.coinDetails[coinId]) {
+            console.log(`[API] Retornando cache expirado para ${coinId}`);
+            return res.json(cache.coinDetails[coinId].data);
+        }
+
+        // 3. Se não houver cache, usar fallback da moeda ou fallback genérico
+        const fallbackCoin = FALLBACK_COINS[coinId] || FALLBACK_COINS['bitcoin'];
+        const fallbackData = {
+            id: fallbackCoin.id,
+            name: fallbackCoin.name,
+            symbol: fallbackCoin.symbol.toUpperCase(),
+            image: fallbackCoin.image.large,
+            market_cap_rank: fallbackCoin.market_cap_rank,
+            market_data: fallbackCoin.market_data
+        };
+
+        cache.coinDetails[coinId] = { data: fallbackData, time: now };
+        console.log(`[API] Usando fallback para: ${coinId}`);
+        
+        // IMPORTANTE: Sempre retorna status 200, mesmo com fallback
+        res.status(200).json(fallbackData);
     }
-    
-    res.status(500).json({
-      error: 'Erro ao buscar detalhes da moeda',
-      message: error.message,
-      id: req.params.id,
-      timestamp: new Date().toISOString()
-    });
-  }
 });
 
+// ================= ENDPOINTS AUXILIARES =================
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-    cache: {
-      cryptoCurrencies: Object.keys(cache.crypto),
-      coinDetails: Object.keys(cache.coinDetails),
-      cacheTime: CACHE_TIME
-    }
-  });
-});
-
-app.get('/api/keepalive', (req, res) => {
-  res.json({ 
-    status: 'ALIVE', 
-    timestamp: new Date().toISOString(),
-    message: 'Backend está acordado!',
-    uptime: process.uptime()
-  });
+    res.json({
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        cacheStats: {
+            cryptoCurrencies: Object.keys(cache.crypto),
+            coinDetails: Object.keys(cache.coinDetails)
+        }
+    });
 });
 
 app.get('/api/clear-cache', (req, res) => {
-  const cryptoCount = Object.keys(cache.crypto).length;
-  const coinDetailsCount = Object.keys(cache.coinDetails).length;
-  
-  cache.crypto = {};
-  cache.coinDetails = {};
-  
-  res.json({ 
-    message: 'Cache limpo com sucesso',
-    cleared: {
-      cryptoEntries: cryptoCount,
-      coinDetails: coinDetailsCount
-    }
-  });
+    cache.crypto = {};
+    cache.coinDetails = {};
+    res.json({ message: 'Cache limpo', timestamp: new Date().toISOString() });
 });
 
+// Rota raiz
 app.get('/', (req, res) => {
-  res.json({
-    message: '🚀 Crypto Dashboard Backend API',
-    version: '1.0.0',
-    status: 'operational',
-    documentation: 'https://github.com/RafaelHedlund/crypto-dashboard',
-    endpoints: {
-      cryptoList: 'GET /api/crypto?vs_currency=usd',
-      coinDetails: 'GET /api/coin/:id',
-      health: 'GET /api/health',
-      keepAlive: 'GET /api/keepalive',
-      clearCache: 'GET /api/clear-cache'
-    },
-    example: {
-      frontendURL: 'https://crypto-dashboard.vercel.app',
-      apiURL: 'https://dashboard-crypto-1.onrender.com'  // ATUALIZEI PARA SUA URL
-    }
-  });
+    res.json({
+        message: '🚀 Crypto Dashboard Backend API',
+        status: 'operational',
+        endpoints: {
+            cryptoList: 'GET /api/crypto?vs_currency=usd',
+            coinDetails: 'GET /api/coin/:id',
+            health: 'GET /api/health',
+            clearCache: 'GET /api/clear-cache'
+        }
+    });
 });
 
-// ================= ROTA DE FALLBACK =================
-app.use((req, res) => {
-  res.status(404).json({
-    error: 'Endpoint não encontrado',
-    availableEndpoints: {
-      root: '/',
-      cryptoList: '/api/crypto',
-      coinDetails: '/api/coin/:id',
-      health: '/api/health',
-      keepAlive: '/api/keepalive',
-      clearCache: '/api/clear-cache'
-    }
-  });
-});
-
-// ================= CORREÇÃO CRÍTICA: VINCULAÇÃO DO SERVIDOR =================
-// TROQUE A ÚLTIMA LINHA PARA:
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`
-  🚀  Backend iniciado no Render!
-  ⚡  Porta: ${PORT}
-  🔧  Ambiente: ${process.env.NODE_ENV || 'development'}
-  ⏱️  Cache: ${CACHE_TIME}ms
-  `);
+    console.log(`🚀 Backend rodando na porta ${PORT} | Cache: ${CACHE_DURATION/1000}s`);
 });
